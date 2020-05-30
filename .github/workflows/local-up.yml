@@ -10,7 +10,7 @@ jobs:
 
   build:
     name: k8s local-up CI
-    runs-on: ubuntu-18.04
+    runs-on: self-hosted
     timeout-minutes: 240
     steps:
 
@@ -158,9 +158,18 @@ jobs:
             --build=none --ginkgo-parallel=1 \
             --deployment=local --provider=local \
             --test \
-            --test_args="--ginkgo.focus=[Conformance] --ginkgo.skip=should rollback without unnecessary restarts" \
+            --test_args='--ginkgo.focus=\[Conformance\] --ginkgo.skip=\[sig\-apps\]\sDaemon\sset\s\[Serial\]\sshould\srollback\swithout\sunnecessary\srestarts\s\[Conformance\]' \
             --kubeconfig="$KUBECONFIG" \
             --timeout=240m | tee ${{ github.workspace }}/logs/kubetest.log
+
+      - name: Cleanup processes and containers
+        if: always()
+        shell: bash
+        run: |
+          (docker rm -f $(docker ps -a -q)) || true
+          (docker rmi -f $(docker images -q -a)) || true
+          (docker system prune --all --volumes -f) || true
+          (ps -ef | grep -i -e kube- -e etcd -e dockerd | grep -v grep | awk '{print $2}' | xargs sudo kill -9) || true
 
       - name: Dump docker logs
         if: always()
